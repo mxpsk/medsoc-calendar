@@ -56,6 +56,8 @@ TIME_RE = re.compile(
     r"(\d{1,2}:\d{2})(am|pm)?\s*[-–]\s*(\d{1,2}:\d{2}|late)(am|pm)?",
     re.IGNORECASE,
 )
+# Matches a single start time with no end, e.g. "7:30am" or "6:00pm"
+START_ONLY_RE = re.compile(r"(\d{1,2}:\d{2})(am|pm)", re.IGNORECASE)
 
 # ---------------------------------------------------------------------------
 # Time parsing helpers
@@ -83,7 +85,16 @@ def parse_time_range(raw: str) -> Optional[tuple[tuple[int, int], tuple[int, int
     """
     m = TIME_RE.search(raw)
     if not m:
-        return None
+        # Try start-time-only, e.g. "7:30am" — use start + 1 hour as end
+        m2 = START_ONLY_RE.search(raw)
+        if not m2:
+            return None
+        sh, sm = map(int, m2.group(1).split(":"))
+        sh, sm = _to_24h(sh, sm, m2.group(2))
+        eh, em = sh + 1, sm
+        if eh >= 24:
+            eh, em = 23, 59
+        return (sh, sm), (eh, em)
 
     start_str, start_ap, end_str, end_ap = m.group(1), m.group(2), m.group(3), m.group(4)
 
