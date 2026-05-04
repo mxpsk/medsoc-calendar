@@ -1,0 +1,39 @@
+name: Update MedSoc Calendar
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2am UTC (12pm AEDT)
+  workflow_dispatch:       # Also allows manual trigger from GitHub UI
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install google-api-python-client
+
+      - name: Run calendar conversion
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          python medsoc_calendar.py \
+            --sheet-id 1MR_Q-qKY0NhCGUWBngiuGnqwxJnp_3M6Rwhu79rvM-c \
+            --api-key "$GOOGLE_API_KEY" \
+            --output-dir .
+
+      - name: Commit and push updated ICS files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.ics
+          git diff --cached --quiet || git commit -m "Auto-update ICS files [$(date -u '+%Y-%m-%d')]"
+          git push
